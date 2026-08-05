@@ -1,9 +1,10 @@
 name: CI
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  workflow_dispatch:
 
 permissions:
-  contents: "read"
+  contents: read
 
 defaults:
   run:
@@ -17,18 +18,18 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: "Checkout repository"
+      - name: Checkout repository
         uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
         with:
           persist-credentials: false
 
-      - name: "Setup Python"
+      - name: Setup Python
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
-          python-version: "3.x"
-          cache: "pip"
+          python-version: 3.x
+          cache: pip
 
-      - name: "Check packages"
+      - name: Check packages
         run: |
           python -m pip install -U pip setuptools wheel build twine rstcheck
           python -m build
@@ -41,7 +42,7 @@ jobs:
       matrix:
         # 3.14 is dropped: see process/builder_README.md — 2.3.0's own test infra
         # cannot run it, and upstream never gated on it at this tag.
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
         os:
           - macos-15
           - windows-latest
@@ -52,24 +53,24 @@ jobs:
           # these add jobs rather than overwriting existing ones. No
           # continue-on-error anywhere: failures must be visible.
           # integration
-          - python-version: "3.9"
+          - python-version: '3.9'
             os: ubuntu-latest
             nox-session: test_integration
-          - python-version: "3.12"
+          - python-version: '3.12'
             os: ubuntu-latest
             nox-session: test_integration
           # pypy
-          - python-version: "pypy-3.10"
+          - python-version: pypy-3.10
             os: ubuntu-latest
             nox-session: test-pypy3.10
           # brotlipy instead of brotli. Pinned to 3.12 rather than upstream's
           # "3.x": that now resolves to 3.14, where dev-requirements installs no
           # pytest-memray while the noxfile still passes --memray.
-          - python-version: "3.12"
+          - python-version: '3.12'
             os: ubuntu-latest
             nox-session: test_brotlipy
           # emscripten: node, plus both browser runners
-          - python-version: "3.12"
+          - python-version: '3.12'
             os: ubuntu-latest
             nox-session: emscripten(node)
 
@@ -78,13 +79,13 @@ jobs:
     # Raised from 10: the arm64 macOS 3.9 leg may build CPython from source.
     timeout-minutes: 25
     steps:
-      - name: "Checkout repository"
+      - name: Checkout repository
         uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
         with:
           fetch-depth: 0 # Needed to fetch the version from git
           persist-credentials: false
 
-      - name: "Setup Python ${{ matrix.python-version }}"
+      - name: Setup Python ${{ matrix.python-version }}
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         if: ${{ !(matrix.os == 'macos-15' && matrix.python-version == '3.9') }}
         with:
@@ -93,7 +94,7 @@ jobs:
 
       # actions/setup-python has no arm64 macOS build of CPython 3.9; this
       # action builds it from source, which is how other seals cover that leg.
-      - name: "Setup Python ${{ matrix.python-version }} (built from source)"
+      - name: Setup Python ${{ matrix.python-version }} (built from source)
         uses: MatteoH2O1999/setup-python@ca074e4eaaaf9f4e5ac2db92e45cb7821f2fa266 # v4
         if: ${{ matrix.os == 'macos-15' && matrix.python-version == '3.9' }}
         with:
@@ -104,18 +105,18 @@ jobs:
       # Flask/Werkzeug stack), which nox installs itself — the time machine on the
       # step above only covers the workflow's own pip install. urllib3's declared
       # dependencies are untouched, and nothing here reaches the built wheel/sdist.
-      - name: "Constrain Flask/Werkzeug for the dummyserver test stack"
+      - name: Constrain Flask/Werkzeug for the dummyserver test stack
         run: |
           echo "Flask<3.1" > ci-constraints.txt
           echo "Werkzeug<3.1" >> ci-constraints.txt
           echo "PIP_CONSTRAINT=${{ github.workspace }}/ci-constraints.txt" >> $GITHUB_ENV
 
-      - name: "Install dependencies"
+      - name: Install dependencies
         # Time machine: resolve the build toolchain as of the 2.3.0 release date
         # so a newer pip/nox/argcomplete cannot break the legs.
         run: python -m pip install --index-url 'https://:2024-12-22T07:47:28.074156Z@time-machines-pypi.sealsecurity.io/' --upgrade pip setuptools nox
 
-      - name: "Install Chrome"
+      - name: Install Chrome
         uses: browser-actions/setup-chrome@db1b524c26f20a8d1a10f7fc385c92387e2d0477 # v1.7.1
         id: setup-chrome
         if: ${{ matrix.nox-session == 'emscripten(chrome)' }}
@@ -129,10 +130,10 @@ jobs:
           sudo ln -s ${{ steps.setup-chrome.outputs.chrome-path }} /usr/bin/chrome
           google-chrome --version
         if: ${{ matrix.nox-session == 'emscripten(chrome)' }}
-      - name: "Install Firefox"
+      - name: Install Firefox
         uses: browser-actions/setup-firefox@233224b712fc07910ded8c15fb95a555c86da76f # v1.5.0
         if: ${{ matrix.nox-session == 'emscripten(firefox)' }}
-      - name: "Install node.js"
+      - name: Install node.js
         uses: actions/setup-node@v4
         if: ${{ matrix.nox-session == 'emscripten(node)' }}
         with:
@@ -144,47 +145,47 @@ jobs:
           path: .nox/.cache
           # noxfile.py contains the Pyodide version used currently.
           key: pyodide-downloads-${{ hashFiles('noxfile.py') }}
-      - name: "Run tests"
+      - name: Run tests
         # If no explicit NOX_SESSION is set, run the default tests for the chosen Python version
         run: nox -s ${NOX_SESSION:-test-$PYTHON_VERSION}
         env:
           PYTHON_VERSION: ${{ matrix.python-version }}
           NOX_SESSION: ${{ matrix.nox-session }}
 
-      - name: "Upload coverage data"
+      - name: Upload coverage data
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
           name: coverage-data-${{ matrix.python-version }}-${{ matrix.os }}-${{ matrix.experimental }}-${{ matrix.nox-session }}
-          path: ".coverage.*"
+          path: .coverage.*
           if-no-files-found: error
 
 
   coverage:
     # Disabled on the fork: --fail-under=100 needs the full upstream matrix (integration, emscripten, pypy legs).
     if: false
-    runs-on: "ubuntu-latest"
+    runs-on: ubuntu-latest
     needs: test
     steps:
-      - name: "Checkout repository"
+      - name: Checkout repository
         uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
         with:
           persist-credentials: false
 
-      - name: "Setup Python"
+      - name: Setup Python
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
-          python-version: "3.x"
+          python-version: 3.x
 
-      - name: "Install coverage"
-        run: "python -m pip install -r dev-requirements.txt"
+      - name: Install coverage
+        run: python -m pip install -r dev-requirements.txt
 
-      - name: "Download coverage data"
+      - name: Download coverage data
         uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
         with:
           pattern: coverage-data-*
           merge-multiple: true
 
-      - name: "Combine & check coverage"
+      - name: Combine & check coverage
         run: |
           python -m build
           python -m coverage combine
@@ -192,7 +193,7 @@ jobs:
           python -m coverage report --ignore-errors --show-missing --fail-under=100
 
       - if: ${{ failure() }}
-        name: "Upload report if check failed"
+        name: Upload report if check failed
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
           name: coverage-report
